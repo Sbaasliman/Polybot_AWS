@@ -1,151 +1,81 @@
-import json
-import flask
-from flask import request
+import telebot
+from loguru import logger
 import os
-from bot import ObjectDetectionBot
+import time
 import boto3
-from bot import ObjectDetectionBot, Bot, QuoteBot
-
-app = flask.Flask(__name__)
-
-# Retrieve environment variables
-# region_db = os.environ['Region_Dynamodb']
-# dynamodb_table = os.environ['Dynamodb_table']
-# s3_bucket = os.environ['BUCKET_NAME']
-# queue_name = os.environ['SQS_QUEUE_NAME']
-# TELEGRAM_APP_URL = os.environ['TELEGRAM_APP_URL']
-# path_cert = os.environ['path_cert']
-# region_secret = os.environ.get('Region_secret')
-# region_s3 = os.environ.get('Region_S3')
-# region_sqs = os.environ.get('Region_SQS')
-
-# ==============================
-
-region_db = 'us-west-2'
-dynamodb_table = 'Sabaa_dynamodb2'
-s3_bucket = 'naghambucket'
-queue_name = 'Sabaa_SQS'
-TELEGRAM_APP_URL = 'https://polybotlb-2005455536.eu-central-1.elb.amazonaws.com'
-region_secret = 'eu-central-1'
-region_s3 = 'us-east-2'
-region_sqs = 'us-east-1'
-path_cert = 'PUBLIC.pem'
-# cert generate :openssl req -newkey rsa:2048 -sha256 -nodes -keyout PRIVATE.key -x509 -days 40 -out PUBLIC.pem -subj "/C=US/O=Example Brooklyn Company/CN=polybotlb-2005455536.eu-central-1.elb.amazonaws.com"
+import json
+import requests
+from botocore.exceptions import NoCredentialsError
+from pathlib import Path
+import pymongo
 
 
-# Retrieve the TELEGRAM_TOKEN value from Secrets Manager
-secrets_manager_client = boto3.client('secretsmanager', region_name=region_secret)
-response = secrets_manager_client.get_secret_value(SecretId='telegram-bot-token')
-data = json.loads(response['SecretString'])
-TELEGRAM_TOKEN = data['TELEGRAM_TOKEN']
+class Bot:
+    def __init__(self, token, telegram_chat_url, s3_bucket_name, region_s3, sqs_queue_name, region_sqs, path_cert):
+        # Initialize Telegram Bot client
+        self.region_sqs = region_sqs
+        self.sqs_queue_name = sqs_queue_name
+        self.region_s3 = region_s3
+        self.s3_bucket_name = s3_bucket_name
+        self.telegram_bot_client = telebot.TeleBot(token)
+        self.telegram_bot_client.remove_webhook()
+        self.path_cert = path_cert
+        time.sleep(0.5)
+        self.telegram_bot_client.set_webhook(url=f'{telegram_chat_url}/{token}/', timeout=60, certificate=open(self.path_cert, 'rb'))
 
+        logger.info(f'Telegram Bot information\n\n{self.telegram_bot_client.get_me()}')
 
-# Define routes
-@app.route('/', methods=['GET'])
-def index():
-    return 'Ok'
+    # Method to send text message
+    def send_text(self, chat_id, text):
+        self.telegram_bot_client.send_message(chat_id, text)
 
+    # Method to check if current message contains a photo
+    def is_current_msg_photo(self, msg):
+        return 'photo' in msg
 
-@app.route(f'/{TELEGRAM_TOKEN}/', methods=['POST'])
-def webhook():
-    req = request.get_json()
-    bot.handle_message(req['message'])
-    return 'Ok'
+    # Method to download user photo
+    def download_user_photo(self, msg):
+        if not self.is_current_msg_photo(msg):
+            raise RuntimeError(f'Message content of type \'photo\' expected')
+        file_info = self.telegram_bot_client.get_file(msg['photo'][-1]['file_id'])
+        data = self.telegram_bot_client.download_file(file_info.file_path)
+        folder_name = file_info.file_path.split('/')[0]
+        if not os.path.exists(folder_name):
+            os.makedirs(folder_name)
+        with open(file_info.file_path, 'wb') as photo:
+            photo.write(data)
+        return file_info.file_path
 
+    # Method to handle incoming messages
+    def handle_message(self, msg):
+        logger.info(f'Incoming message: {msg}')
+        self.send_text(msg['chat']['id'], f'Your original message: {msg["text"]}')
 
-@app.route('/health')
-def health_check():
-    return 'Ok', 200
+class QuoteBot(Bot):
+    def handle_message(self, msg):
+        logger.info(f'Incoming message: {msg}')
 
+        if msg["text"] != 'Please don\'t quote me':
+            self.send_text_with_quote(msg['chat']['id'], msg["text"], quoted_msg_id=msg["message_id"])
 
-@app.route(f'/results', methods=['GET'])
-def results():
-    prediction_id = request.args.get('predictionId')
-
-    # Retrieve prediction results from DynamoDB
-    dynamodb_client = boto3.client('dynamodb', region_name=region_db)
-    response = dynamodb_client.get_item(
-        TableName=dynamodb_table,
-        Key={'prediction_id': {'S': str(prediction_id)}}
-    )
-    chat_id = response['Item']['chat_id']['S']
-    # Format and send text results to the user
-    labels = response['Item']['labels']
-    text_results = formatted_message(labels)
-    bot.send_text(chat_id, text_results)
-    return 'Ok'
-
-
-def formatted_message(labels):
-    obj_count = {}
-    formatted_string = f"Detected Objects:\n"
-    print(labels)
-    json_string = labels['S'].replace("'", '"')
-
-    # Parse the JSON string
-    data = json.loads(json_string)
-    for item in data:
-        class_name = item.get("class")
-        if class_name in obj_count:
-            obj_count[class_name] += 1
-        else:
-            obj_count[class_name] = 1
-    for key, value in obj_count.items():
-        formatted_string += f"{key}: {value}\n"
-    return formatted_string
-
-
-@app.route(f'/loadTest/', methods=['POST'])
-def load_test():
-    req = request.get_json()
-    bot.handle_message(req['message'])
-    return 'Ok'
-
-
-if __name__ == "__main__":
-    bot = ObjectDetectionBot(TELEGRAM_TOKEN, TELEGRAM_APP_URL, s3_bucket, region_s3, queue_name, region_sqs, path_cert)
-    app.run(host='0.0.0.0', port=8443, debug=True)
-
-# def results():
-#     prediction_id = request.args.get('predictionId')
-#
-#     # Retrieve prediction results from DynamoDB
-#     dynamodb_client = boto3.client('dynamodb', region_name=region_db)
-#     response = dynamodb_client.get_item(
-#         TableName=dynamodb_table,
-#         Key={'prediction_id': {'S': prediction_id}}
-#     )
-#     chat_id = response['Item']['chat_id']['S']
-#     # Format and send text results to the user
-#     text_results = formatted_message(response.get('Item', {}))
-#     bot.send_text(chat_id, text_results)
-#     return 'Ok'
-
-
-# def results():
-#     prediction_id = request.args.get('predictionId')
-#
-#     # Retrieve prediction results from DynamoDB
-#     dynamodb_client = boto3.client('dynamodb', region_name=region_db)
-#     response = dynamodb_client.get_item(
-#         TableName=dynamodb_table,
-#         Key={'prediction_id': {'S': prediction_id}}
-#     )
-#
-#     # Extract the prediction details from the response
-#     prediction_details_str = response['Item']['S']['M']['S']
-#     prediction_details_dict = json.loads(prediction_details_str)
-#
-#     # Extract individual parameters
-#     prediction_id = prediction_details_dict['prediction_id']
-#     original_img_path = prediction_details_dict['original_img_path']
-#     predicted_img_path = prediction_details_dict['predicted_img_path']
-#     labels = prediction_details_dict['labels']
-#     text_results = prediction_details_dict['text_results']
-#     chat_id = prediction_details_dict['chat_id']
-#
-#     # Format and send text results to the user
-#     formatted_text_results = formatted_message(prediction_details_dict)
-#     bot.send_text(chat_id, formatted_text_results)
-#
-#     return 'Ok'
+class ObjectDetectionBot(Bot):
+    def handle_message(self, msg):
+        logger.info(f'Incoming message: {msg}')
+        if self.is_current_msg_photo(msg):
+            # Upload photo to S3 and send job to SQS queue
+            photo_path = self.download_user_photo(msg)
+            print('Photo successfully downloaded')
+            sqs_client = boto3.client('sqs', region_name=self.region_sqs)
+            s3_client = boto3.client('s3', region_name=self.region_s3)
+            photo_key = os.path.basename(photo_path)
+            print('Uploading...')
+            try:
+                s3_client.upload_file(photo_path, self.s3_bucket_name, photo_key)
+                print('File successfully uploaded')
+                logger.info(f'Uploaded photo to S3: {photo_key}')
+            except NoCredentialsError:
+                print('Credentials not available')
+            sqs_message = {'chat_id': msg['chat']['id'], 'img_name': photo_key}
+            sqs_client.send_message(QueueUrl=self.sqs_queue_name, MessageBody=json.dumps(sqs_message))
+            self.send_text(msg['chat']['id'], 'Your image is being processed. Please wait...')
+            logger.info(f'Message to the Telegram end-user sent')
