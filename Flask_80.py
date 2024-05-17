@@ -12,7 +12,9 @@ def index():
 @app.route('/health')
 def health_check():
     return 'Ok', 200
-
+@app.route('/new')
+def newfnction():
+    return 'hi how are you ?'
 @app.route('/results/', methods=['GET'])
 def results():
     prediction_id = request.args.get('predictionId')
@@ -26,3 +28,4 @@ def results():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=80)
+
