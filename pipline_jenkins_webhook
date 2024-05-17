@@ -11,11 +11,6 @@ pipeline {
             steps {
                 // Checkout code from GitHub repository with the main branch
                 git branch: 'main', credentialsId: 'gitrepo', url: 'https://github.com/Sbaasliman/Polybot_AWS.git'
-
-                // Build Docker image
-                script {
-                    docker.build('polybot', './Polybot')
-                }
             }
         }
 
@@ -65,30 +60,45 @@ pipeline {
                     )
                 ]) {
                     // Inside this block, you can use the credentials securely
-                    // Print username and key (for debugging purposes)
-                    sh '''
-                        echo "Username: $SSH_USER"
-                        echo "SSH Key: $SSH_KEY"
-                    '''
                     script {
                         sh '''
                         # Retrieve ECR authentication token locally
-                         AWS_PASSWORD=$(aws ecr get-login-password --region eu-central-1)
-                         ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "$SSH_USER@3.65.27.155" "echo $AWS_PASSWORD | docker login --username AWS --password-stdin 933060838752.dkr.ecr.eu-central-1.amazonaws.com"
-                         ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "$SSH_USER@3.65.27.155" "docker pull 933060838752.dkr.ecr.eu-central-1.amazonaws.com/ploybot_sabaa2:latest"
-                         ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "$SSH_USER@3.65.27.155" "sudo docker run -p 8443:8443 --name polybot -v ~/.aws/:/root/.aws/:ro -v /home/ec2-user/PUBLIC.pem:/app/PUBLIC.pem 933060838752.dkr.ecr.eu-central-1.amazonaws.com/ploybot_sabaa2:latest"
+                        AWS_PASSWORD=$(aws ecr get-login-password --region eu-central-1)
+                        # SSH into the first EC2 instance
+                        ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "$SSH_USER@3.122.97.91" "
+                            # Log in to ECR
+                            echo $AWS_PASSWORD | docker login --username AWS --password-stdin 933060838752.dkr.ecr.eu-central-1.amazonaws.com
+                            # Stop and remove the existing container
+                            docker stop polybot && docker rm polybot;
+                            # Pull the latest image
+                            docker pull 933060838752.dkr.ecr.eu-central-1.amazonaws.com/ploybot_sabaa2:latest
+                            # Run the container in detached mode
+                            sudo docker run -d -p 8443:8443 --name polybot -v ~/.aws/:/root/.aws/:ro -v /home/ec2-user/PUBLIC.pem:/app/PUBLIC.pem 933060838752.dkr.ecr.eu-central-1.amazonaws.com/ploybot_sabaa2:latest
+                        "
                         '''
                     }
                 }
 
                 // SSH into second EC2 instance and execute Docker run command
-                script {
-                    sh '''
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'EC2key',
+                        keyFileVariable: 'SSH_KEY',
+                        passphraseVariable: '',
+                        usernameVariable: 'SSH_USER'
+                    )
+                ]) {
+                    script {
+                        sh '''
                         AWS_PASSWORD=$(aws ecr get-login-password --region eu-central-1)
-                        ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "$SSH_USER@3.65.27.155" "echo $AWS_PASSWORD | docker login --username AWS --password-stdin 933060838752.dkr.ecr.eu-central-1.amazonaws.com"
-                        ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "$SSH_USER@3.65.27.155" "docker pull 933060838752.dkr.ecr.eu-central-1.amazonaws.com/ploybot_sabaa2:latest"
-                        ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "$SSH_USER@3.65.27.155" "sudo docker run -p 8443:8443 --name polybot -v ~/.aws/:/root/.aws/:ro -v /home/ec2-user/PUBLIC.pem:/app/PUBLIC.pem 933060838752.dkr.ecr.eu-central-1.amazonaws.com/ploybot_sabaa2:latest"
+                        ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "$SSH_USER@3.75.239.152" "
+                            echo $AWS_PASSWORD | docker login --username AWS --password-stdin 933060838752.dkr.ecr.eu-central-1.amazonaws.com
+                            docker stop polybot && docker rm polybot;
+                            docker pull 933060838752.dkr.ecr.eu-central-1.amazonaws.com/ploybot_sabaa2:latest
+                            sudo docker run -d -p 8443:8443 --name polybot -v ~/.aws/:/root/.aws/:ro -v /home/ec2-user/PUBLIC.pem:/app/PUBLIC.pem 933060838752.dkr.ecr.eu-central-1.amazonaws.com/ploybot_sabaa2:latest
+                        "
                         '''
+                    }
                 }
             }
         }
