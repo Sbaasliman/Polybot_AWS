@@ -8,7 +8,7 @@ RUN pip install --upgrade pip
 
 # Copy requirements file and install dependencies
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install -r requirements1.txt
 
 # Download YOLOv5 model weights
 RUN curl -L https://github.com/ultralytics/yolov5/releases/download/v6.1/yolov5s.pt -o yolov5s.pt
