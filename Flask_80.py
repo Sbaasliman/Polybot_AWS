@@ -14,7 +14,7 @@ def health_check():
     return 'Ok', 200
 @app.route('/new')
 def newfnction():
-    return 'hi  are you ?'
+    return 'hi how are you ?'
 @app.route('/results/', methods=['GET'])
 def results():
     prediction_id = request.args.get('predictionId')
