@@ -47,3 +47,18 @@ def lambda_handler(event, context):
             print("Error:", e)
 
         time.sleep(30)
+#adding policy to the asg
+# aws autoscaling put-scaling-policy --policy-name sqs-scale-out-policy \
+#   --auto-scaling-group-name ASG_Sabaa --policy-type TargetTrackingScaling \
+#   --target-tracking-configuration file://~/config.json \
+#   --region eu-central-1
+# config.json
+# {
+#    "TargetValue":3 ,
+#    "CustomizedMetricSpecification": {
+#       "MetricName": "SabaaBacklog",
+#       "Namespace": "Custom/Metrics",
+#       "Statistic": "Average",
+#       "Unit": "None"
+#    }
+# }
