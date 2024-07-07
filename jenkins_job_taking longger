@@ -1,0 +1,54 @@
+import hudson.model.*
+import jenkins.model.*
+import hudson.Util;
+import hudson.node_monitors.*
+import hudson.slaves.*
+import hudson.model.StringParameterValue
+import java.util.concurrent.*
+import jenkins.model.Jenkins
+import java.util.regex.*;
+import java.util.regex.Pattern
+import jenkins.model.JenkinsLocationConfiguration
+import hudson.model.ParametersDefinitionProperty
+
+// Get the Jenkins instance
+def jenkins = Jenkins.getInstance()
+
+
+// List of item names to check
+def items = ["Alteon_Cli_Tests", "Alteon_Webui_Tests", "Robot_Tests_Alteon"]
+
+// Iterate over each item in the Jenkins instance
+items.each { itemName ->
+    println "Checking running builds for item: ${itemName}"
+
+    // Retrieve the item object
+    def item = jenkins.getItemByFullName(itemName)
+    if (item) {
+        // Iterate over each running build in the current item
+        item.getBuilds().findAll { build ->
+            build.isBuilding()
+        }.each { build ->
+            // Retrieve the build number for the current build
+            def buildNumber = build.number
+
+            // Get the build duration for the current build (in milliseconds)
+            def buildDuration = System.currentTimeMillis() - build.getTimeInMillis()
+
+            // Convert build duration to hours
+            def buildDurationHours = buildDuration / (1000 * 60 * 60)
+
+           // Print build duration along with other information
+            println "Build in ${itemName} with build number ${buildNumber} took ${buildDurationHours} hours (${buildDuration} milliseconds)."
+
+
+            // Check if build duration exceeds 20 hours
+            if (buildDurationHours > 20) {
+                println "Build in ${itemName} with build number ${buildNumber} took more than 20 hours (${buildDuration} milliseconds). Stopping the build..."
+                build.doStop()
+            }
+        }
+    } else {
+        println "Item ${itemName} not found."
+    }
+}
