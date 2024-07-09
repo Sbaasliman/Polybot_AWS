@@ -1,6 +1,6 @@
 import telebot
 import os
-TELEGRAM_TOKEN = '6322883166:AAF2vDsEr-j62GEKHFiDl-WhpJt9pEQX7g4'
+TELEGRAM_TOKEN = ''
 TELEGRAM_CHAT_URL = 'https://atech-bot.click'  # Replace with your actual URL
 PATH_CERT = '/app/PUBLIC.pem'  # Replace with the correct path in your environment
 try:
