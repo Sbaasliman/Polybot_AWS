@@ -23,9 +23,12 @@ class Bot:
         print(path_cert)
         print(token)
         print(telegram_chat_url)
+        self.telegram_bot_client = telebot.TeleBot(token)
 
+        # remove any existing webhooks configured in Telegram servers
+        self.telegram_bot_client.remove_webhook()
         time.sleep(0.5)
-        self.telegram_bot_client.set_webhook(url=f'{telegram_chat_url}/{token}/', timeout=60, certificate=open(self.path_cert, 'rb'))
+        self.telegram_bot_client.set_webhook(url=f'{telegram_chat_url}/{token}/', certificate = open(path_cert, 'r'),  timeout=60)
 
         logger.info(f'Telegram Bot information\n\n{self.telegram_bot_client.get_me()}')
 
