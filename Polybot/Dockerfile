@@ -1,6 +1,11 @@
 FROM python:3.9-slim
 WORKDIR /app
-RUN apt-get update && apt-get install -y python3
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       iputils-ping \
+       dnsutils \
+       python3 \
+    && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY . .
