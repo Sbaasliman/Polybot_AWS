@@ -60,8 +60,9 @@ def health_check():
 @app.route('/liveness')
 def liveness():
     return 'Ok', 200
+
 @app.route('/readiness')
-def liveness():
+def readiness():
     return 'Ok', 200
 
 @app.route(f'/results/', methods=['GET'])
