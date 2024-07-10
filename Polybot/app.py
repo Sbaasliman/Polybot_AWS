@@ -57,6 +57,12 @@ def webhook():
 def health_check():
     return 'Ok', 200
 
+@app.route('/liveness')
+def liveness():
+    return 'Ok', 200
+@app.route('/readiness')
+def liveness():
+    return 'Ok', 200
 
 @app.route(f'/results/', methods=['GET'])
 def results():

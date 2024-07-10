@@ -10,5 +10,5 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY . .
 EXPOSE 8443
-CMD ["sh", "-c", "sleep 500000 && python3 app.py"]
-#CMD ["python3 app.py"]
+#CMD ["sh", "-c", "sleep 500000 && python3 app.py"]
+CMD ["python3 app.py"]

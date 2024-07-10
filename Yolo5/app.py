@@ -7,6 +7,7 @@ import os
 import boto3
 import json
 import requests
+import flask
 from decimal import Decimal
 
 #
@@ -16,7 +17,7 @@ from decimal import Decimal
 # queue_name = os.environ['SQS_QUEUE_NAME']
 # region_sqs = os.environ['Region_SQS']
 
-
+app = flask.Flask(__name__)
 region_db = 'us-west-2'
 dynamodb_table = 'Sabaa_dynamodb2'
 s3_bucket = 'naghambucket'
@@ -33,7 +34,16 @@ dynamodb_resource = boto3.resource('dynamodb', region_name=region_db)
 
 with open("data/coco128.yaml", "r") as stream:
     names = yaml.safe_load(stream)['names']
+@app.route('/health')
+def health_check():
+    return 'Ok', 200
 
+@app.route('/liveness')
+def liveness():
+    return 'Ok', 200
+@app.route('/readiness')
+def liveness():
+    return 'Ok', 200
 
 def consume():
     while True:
@@ -146,3 +156,4 @@ def consume():
 
 if __name__ == "__main__":
     consume()
+    app.run(host='0.0.0.0', port=80, debug=True)
