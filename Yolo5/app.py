@@ -1,6 +1,6 @@
 import time
 from pathlib import Path
-from detect import run
+from detect import run  # Assuming `detect` module contains your object detection code
 import yaml
 from loguru import logger
 import os
@@ -10,14 +10,9 @@ import requests
 import flask
 from decimal import Decimal
 
-#
-# region_db = os.environ['Region_Dynamodb']
-# dynamodb_table = os.environ['Dynamodb_table']
-# images_bucket = os.environ['BUCKET_NAME']
-# queue_name = os.environ['SQS_QUEUE_NAME']
-# region_sqs = os.environ['Region_SQS']
-
 app = flask.Flask(__name__)
+
+# Define your AWS and Flask configurations here
 region_db = 'us-west-2'
 dynamodb_table = 'Sabaa_dynamodb2'
 s3_bucket = 'naghambucket'
@@ -27,13 +22,16 @@ region_s3 = 'us-east-2'
 region_sqs = 'us-east-1'
 path_cert = 'PUBLIC.pem'
 
+# Initialize AWS clients
 sqs_client = boto3.client('sqs', region_name=region_sqs)
 s3_client = boto3.client('s3')
-# dynamodb_client = boto3.client('dynamodb', region_name=region_db)
 dynamodb_resource = boto3.resource('dynamodb', region_name=region_db)
 
+# Load COCO names for object detection
 with open("data/coco128.yaml", "r") as stream:
     names = yaml.safe_load(stream)['names']
+
+# Flask health check endpoints
 @app.route('/health')
 def health_check():
     return 'Ok', 200
@@ -41,10 +39,12 @@ def health_check():
 @app.route('/liveness')
 def liveness():
     return 'Ok', 200
+
 @app.route('/readiness')
-def liveness():
+def readiness():
     return 'Ok', 200
 
+# SQS message consumer function
 def consume():
     while True:
         response = sqs_client.receive_message(QueueUrl=queue_name, MaxNumberOfMessages=1, WaitTimeSeconds=5)
@@ -52,25 +52,21 @@ def consume():
         if 'Messages' in response:
             message = response['Messages'][0]['Body']
             receipt_handle = response['Messages'][0]['ReceiptHandle']
-
-            # Use the ReceiptHandle as a prediction UUID
             prediction_id = response['Messages'][0]['MessageId']
 
-            logger.info(f'prediction: {prediction_id}. start processing')
+            logger.info(f'prediction: {prediction_id}. Start processing')
 
-            # Receives a URL parameter representing the image to download from S3
-            img_name = ...  # TODO extract from `message`
-            chat_id = ...  # TODO extract from `message`
+            # Extract data from message
             message_data = json.loads(message)
             img_name = message_data['img_name']
             chat_id = message_data['chat_id']
-            original_img_path = ...  # TODO download img_name from S3, store the local image path in original_img_path
+
+            # Download image from S3
             original_img_path = f"{img_name}"
             s3_client.download_file(s3_bucket, img_name, original_img_path)
-
             logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
 
-            # Predicts the objects in the image
+            # Run object detection
             run(
                 weights='yolov5s.pt',
                 data='data/coco128.yaml',
@@ -80,19 +76,15 @@ def consume():
                 save_txt=True
             )
 
-            logger.info(f'prediction: {prediction_id}/{original_img_path}. done')
+            logger.info(f'prediction: {prediction_id}/{original_img_path}. Object detection completed')
 
-            # This is the path for the predicted image with labels
-            # The predicted image typically includes bounding boxes drawn around the detected objects, along with class labels and possibly confidence scores.
-            predicted_img_path = Path(f'usr/src/app/{prediction_id}/{original_img_path}')
-
-            # TODO Uploads the predicted image (predicted_img_path) to S3 (be careful not to override the original image).
-            # Construct the new filename for the predicted image
+            # Upload predicted image to S3
             predicted_img_name = f"predicted_{img_name}"
-            # Upload the renamed predicted image to S3
+            predicted_img_path = Path(f'usr/src/app/{prediction_id}/{original_img_path}')
             s3_client.upload_file(str(predicted_img_path), s3_bucket, predicted_img_name)
+            logger.info(f'prediction: {prediction_id}/{original_img_path}. Predicted image uploaded to S3')
 
-            # Parse prediction labels and create a summary
+            # Parse prediction labels
             pred_summary_path = Path(f'usr/src/app/{prediction_id}/labels/{original_img_path.split(".")[0]}.txt')
             if pred_summary_path.exists():
                 with open(pred_summary_path) as f:
@@ -106,54 +98,36 @@ def consume():
                         'height': float(l[4]),
                     } for l in labels]
 
-                logger.info(f'prediction: {prediction_id}/{original_img_path}. prediction summary:\n\n{labels}')
-                prediction_id = str(prediction_id)
+                logger.info(f'prediction: {prediction_id}/{original_img_path}. Prediction summary:\n\n{labels}')
 
-                # prediction_summary = {
-                #     "'{'prediction_id': '" + str(
-                #         prediction_id) + "', 'original_img_path': '" + original_img_path + "', 'predicted_img_path': '" + str(
-                #         Path(predicted_img_path)) + "', 'labels': '" + str(
-                #         labels) + "', 'text_results': 'The predicted image is stored in S3 as: " + predicted_img_name + "', 'chat_id': '" + str(
-                #         chat_id) + "'}'"
-                # }
-                # prediction_summary = {
-                #      "{'prediction_id': '" + str(prediction_id) + "', 'original_img_path': '" + str(
-                #             original_img_path) + "', 'predicted_img_path': '" + str(
-                #             Path(predicted_img_path)) + "', 'labels': '" + str(
-                #             labels) + "', 'text_results': 'The predicted image is stored in S3 as: " + str(
-                #             predicted_img_name) + "', 'chat_id': '" + str(chat_id) + "'}"
-                # }
+                # Prepare prediction summary
                 prediction_summary = {
                     'prediction_id': str(prediction_id),
                     'original_img_path': str(original_img_path),
                     'predicted_img_path': str(Path(predicted_img_path)),
                     'labels': str(labels),
-                    # 'time': time.time(),
                     'text_results': f"The predicted image is stored in S3 as: {predicted_img_name}",
                     'chat_id': str(chat_id)
                 }
 
-                logger.info(f'prediction summary : {prediction_summary}')
-
-                # TODO store the prediction_summary in a DynamoDB table
-                # Initialize DynamoDB client and table resource
-                # table = dynamodb_client.Table(dynamodb_table)
+                # Store prediction summary in DynamoDB
                 table = dynamodb_resource.Table(dynamodb_table)
-
-                # Put item into DynamoDB table
-                # prediction_summary1 = {
-                #     'prediction_id': prediction_id,
-                #     'prediction_summary': prediction_summary
-                # }
                 table.put_item(Item=prediction_summary)
-                logger.info(f'putted in DynamoDB table: {prediction_summary}')
+                logger.info(f'prediction: {prediction_id}. Prediction summary stored in DynamoDB')
 
-                # TODO perform a GET request to Polybot to `/results` endpoint
+                # Send GET request to Polybot for results
                 polybot_url = "http://polybotlb-2005455536.eu-central-1.elb.amazonaws.com/results/"
                 response = requests.get(polybot_url, params={'predictionId': str(prediction_id)})
-                sqs_client.delete_message(QueueUrl=queue_name, ReceiptHandle=receipt_handle)
+                logger.info(f'prediction: {prediction_id}. GET request sent to Polybot')
 
+                # Delete processed message from SQS queue
+                sqs_client.delete_message(QueueUrl=queue_name, ReceiptHandle=receipt_handle)
+                logger.info(f'prediction: {prediction_id}. Message deleted from SQS')
 
 if __name__ == "__main__":
-    consume()
+    # Start consuming messages from SQS
+    consume_thread = threading.Thread(target=consume)
+    consume_thread.start()
+
+    # Run Flask app
     app.run(host='0.0.0.0', port=80, debug=True)
