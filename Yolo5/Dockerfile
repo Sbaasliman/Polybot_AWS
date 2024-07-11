@@ -19,6 +19,7 @@ COPY . .
 # Add trusted root certificates
 COPY ca-certificates.crt /etc/ssl/certs/
 
+EXPOSE 80
 CMD ["sh", "-c", "sleep 5000000 && python3 app.py"]
 # Command to run your application
 #CMD ["python3", "app.py"]
