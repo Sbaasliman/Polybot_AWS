@@ -17,7 +17,7 @@ RUN curl -L https://github.com/ultralytics/yolov5/releases/download/v6.1/yolov5s
 COPY . .
 
 # Add trusted root certificates
-COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY ca-certificates.crt /etc/ssl/certs/
 
 CMD ["sh", "-c", "sleep 5000000 && python3 app.py"]
 # Command to run your application
