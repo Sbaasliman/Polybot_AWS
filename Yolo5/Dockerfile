@@ -19,5 +19,6 @@ COPY . .
 # Add trusted root certificates
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
+CMD ["sh", "-c", "sleep 5000000 && python3 app.py"]
 # Command to run your application
-CMD ["python3", "app.py"]
+#CMD ["python3", "app.py"]
