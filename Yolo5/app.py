@@ -119,9 +119,8 @@ def consume():
                 # Send GET request to Polybot for results
                  # Send GET request to Polybot for results
                 polybot_url = "https://sabaa.atech-bot.click/results/"
-                path_cert = 'PUBLIC.pem'
-                response = requests.get(polybot_url, params={'predictionId': prediction_id}, verify=path_cert)
-                #response = requests.get(polybot_url, params={'predictionId': str(prediction_id)})
+                #response = requests.get(polybot_url, params={'predictionId': prediction_id}, verify=path_cert)
+                response = requests.get(polybot_url, params={'predictionId': str(prediction_id)}, verify=path_cert)
                 logger.info(f'prediction: {prediction_id}. GET request sent to Polybot')
 
                 # Delete processed message from SQS queue
