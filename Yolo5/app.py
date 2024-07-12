@@ -10,6 +10,9 @@ import requests
 import flask
 from decimal import Decimal
 import threading  # Import threading module
+import urllib3
+
+
 
 app = flask.Flask(__name__)
 
@@ -49,7 +52,7 @@ def readiness():
 def consume():
     while True:
         response = sqs_client.receive_message(QueueUrl=queue_name, MaxNumberOfMessages=1, WaitTimeSeconds=5)
-
+        urllib3.disable_warnings()
         if 'Messages' in response:
             message = response['Messages'][0]['Body']
             receipt_handle = response['Messages'][0]['ReceiptHandle']
