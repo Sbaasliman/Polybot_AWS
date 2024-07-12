@@ -25,6 +25,7 @@ region_secret = 'eu-central-1'
 region_s3 = 'us-east-2'
 region_sqs = 'us-east-1'
 path_cert = 'PUBLIC.pem'
+urllib3.disable_warnings()
 
 # Initialize AWS clients
 sqs_client = boto3.client('sqs', region_name=region_sqs)
@@ -52,7 +53,6 @@ def readiness():
 def consume():
     while True:
         response = sqs_client.receive_message(QueueUrl=queue_name, MaxNumberOfMessages=1, WaitTimeSeconds=5)
-        urllib3.disable_warnings()
         if 'Messages' in response:
             message = response['Messages'][0]['Body']
             receipt_handle = response['Messages'][0]['ReceiptHandle']
@@ -120,10 +120,9 @@ def consume():
                 logger.info(f'prediction: {prediction_id}. Prediction summary stored in DynamoDB')
 
                 # Send GET request to Polybot for results
-                 # Send GET request to Polybot for results
                 polybot_url = "https://sabaa.atech-bot.click/results/"
                 #response = requests.get(polybot_url, params={'predictionId': prediction_id}, verify=path_cert)
-                response = requests.get(polybot_url, params={'predictionId': str(prediction_id)}, verify=path_cert)
+                response = requests.get(polybot_url, params={'predictionId': prediction_id}, verify=False)
                 logger.info(f'prediction: {prediction_id}. GET request sent to Polybot')
 
                 # Delete processed message from SQS queue
