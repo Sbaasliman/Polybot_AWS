@@ -117,8 +117,10 @@ def consume():
                 logger.info(f'prediction: {prediction_id}. Prediction summary stored in DynamoDB')
 
                 # Send GET request to Polybot for results
-                polybot_url = "http://sabaa.atech-bot.click/results/"
-                response = requests.get(polybot_url, params={'predictionId': str(prediction_id)})
+                 # Send GET request to Polybot for results
+                polybot_url = "https://sabaa.atech-bot.click/results/"
+                path_cert = 'PUBLIC.pem'
+                response = requests.get(polybot_url, params={'predictionId': prediction_id}, verify=path_cert)
                 #response = requests.get(polybot_url, params={'predictionId': str(prediction_id)})
                 logger.info(f'prediction: {prediction_id}. GET request sent to Polybot')
 
