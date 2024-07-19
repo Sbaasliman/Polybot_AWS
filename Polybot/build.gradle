@@ -1,0 +1,28 @@
+// build.gradle
+
+plugins {
+    id 'java' // Apply the Java plugin if your project involves Java
+    id 'org.sonarqube' // Apply the SonarQube plugin for code analysis
+}
+
+repositories {
+    jcenter() // Example repository, you can add others as needed
+}
+
+dependencies {
+    implementation 'com.example:dependency:1.0' // Example dependency, replace with your own
+    // Add more dependencies as needed
+}
+
+sonarqube {
+    properties {
+        property 'sonar.projectName', 'Polybot' // Name of your project in SonarQube
+        property 'sonar.sources', 'src/main/java' // Example source directory, adjust accordingly
+        property 'sonar.tests', 'src/test/java' // Example test directory, adjust accordingly
+        // Add more SonarQube properties as needed
+    }
+}
+
+tasks.build {
+    // Configure additional build tasks if necessary
+}
