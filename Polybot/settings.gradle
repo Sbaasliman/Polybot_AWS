@@ -1,0 +1,4 @@
+// settings.gradle
+
+// Define your project root if needed
+rootProject.name = 'Polybot'
