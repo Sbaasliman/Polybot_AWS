@@ -108,3 +108,4 @@ pipeline {
 #should add Generic Webhook Trigger plugin with change github webhook url by : http://admin:admin@18.153.251.133:8080/generic-webhook-trigger/invoke?
 
 #t
+#
